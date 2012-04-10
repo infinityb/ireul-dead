@@ -8,7 +8,9 @@ CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 
 requires = [
     'gevent',
-    'flyrc',
+    'flyrc', # git://github.com/mrflea/flyrc.git
+    'libsre', # git://github.com/infinityb/libsre.git
+    'audiotools', # git://github.com/tuffy/python-audio-tools.git
     ]
 
 setup(name='hanyuu2',
