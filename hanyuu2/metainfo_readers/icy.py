@@ -5,12 +5,10 @@ import re
 import gevent
 import gevent.queue
 from gevent import socket
-from gevent.dns import resolve_ipv6, resolve_ipv4
 
 from hanyuu2.helpers.icy import parse_icy
+from hanyuu2.helpers.net import resolve_netloc
 
-_address_tuple = namedtuple('_address_tuple',
-                            'af address')
 
 class ICYMetaData(object):
     def __init__(self, raw):
@@ -19,31 +17,8 @@ class ICYMetaData(object):
         assert 'StreamTitle' in self._data
         self.stream_title = self._data['StreamTitle']
 
-    def __str__(self):
+    def __unicode__(self):
         return self.stream_title
-
-
-def _resolve_netloc(netloc):
-    # no IPv6 for now, FIXME
-    netloc_split = netloc.split(':', 1)
-    hostname = netloc_split[0]
-    if len(netloc_split) > 1:
-        port = int(netloc_split[1])
-    ipv4_results = list()
-    try:
-        ipv4_results.append(socket.inet_pton(socket.AF_INET, hostname))
-    except socket.error:
-        pass
-    try:
-        _, resolv_results = resolve_ipv4(hostname)
-        ipv4_results.extend(resolv_results)
-    except socket.error:
-        pass
-    def create_tuple(af, packed):
-        address_host = socket.inet_ntop(af, packed)
-        return _address_tuple(af, (address_host, port))
-    return hostname,\
-            [create_tuple(socket.AF_INET, addr) for addr in ipv4_results]
 
 
 def _read_headers(fh):
@@ -77,10 +52,10 @@ def _yield_metainfo(fh):
         if metainfo_length:
             yield ICYMetaData(fh.read(metainfo_length))
 
-def get_icy_metadata(url):
+def get_metadata(url):
     """Returns an iterable yielding the ICY metadata"""
     parse_result = urlparse.urlparse(url)
-    hostname, addresses = _resolve_netloc(parse_result.netloc)
+    hostname, addresses = resolve_netloc(parse_result.netloc)
     conn = None
     for af, address in addresses:
         conn = socket.socket(af, socket.SOCK_STREAM)
@@ -96,12 +71,12 @@ def get_icy_metadata(url):
     conn.send("\r\n")
     return _yield_metainfo(conn.makefile())
 
-def get_icy_metadata_greenlet(url):
+def get_metadata_greenlet(url):
     """Returns a queue yielding the ICY metadata"""
     out = gevent.queue.Queue()
     def icy_metadata_gloop():
         try:
-            for obj in get_icy_metadata(url):
+            for obj in get_metadata(url):
                 out.put(obj)
         except: pass
         out.put(StopIteration)

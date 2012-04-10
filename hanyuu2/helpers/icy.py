@@ -26,7 +26,7 @@ def _parse_element(input_, pos):
     val, pos = _parse_quoted_string(input_, pos)
     assert input_[pos] == ';', "at %d in %r" % (pos, input_)
     pos += 1
-    return (key, val), pos
+    return (key, val.decode('utf8')), pos
 
 def parse_icy(input_):
     input_ = input_.rstrip("\x00")
