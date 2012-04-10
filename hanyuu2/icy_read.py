@@ -7,11 +7,18 @@ import gevent.queue
 from gevent import socket
 from gevent.dns import resolve_ipv6, resolve_ipv4
 
+from hanyuu2.helpers.icy import parse_icy
+
 _address_tuple = namedtuple('_address_tuple',
                             'af address')
 
-class ICYMetaData(namedtuple('ICYMetaData',
-                             'raw stream_title')):
+class ICYMetaData(object):
+    def __init__(self, raw):
+        self.raw = raw
+        self._data = dict(parse_icy(raw))
+        assert 'StreamTitle' in self._data
+        self.stream_title = self._data['StreamTitle']
+
     def __str__(self):
         return self.stream_title
 
@@ -64,16 +71,11 @@ def _yield_metainfo(fh):
     headers = _read_headers(fh)
     assert 'icy-metaint' in headers
     icy_meta_interval = int(headers['icy-metaint'])
-    metadata_matcher = re.compile(r'StreamTitle=\'(.*?)\'')
     while True:
         _consume_data(fh, icy_meta_interval)
         metainfo_length = ord(fh.read(1)) * 16
         if metainfo_length:
-            buf = fh.read(metainfo_length)
-            match_data = metadata_matcher.match(buf)
-            if match_data:
-                groups = match_data.groups()
-                yield ICYMetaData(buf, groups[0])
+            yield ICYMetaData(fh.read(metainfo_length))
 
 def get_icy_metadata(url):
     """Returns an iterable yielding the ICY metadata"""

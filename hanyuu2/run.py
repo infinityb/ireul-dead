@@ -14,6 +14,9 @@ channels = {
 cli.start()
 
 gevent.sleep(3)
-for res in get_icy_metadata(channels['everfree']):
-    print "Got TrackInfo: %r" % res.raw
-    cli.send(message.msg("#everfree", "Now Playing: %s" % str(res)))
+
+while True:
+    for res in get_icy_metadata(channels['everfree']):
+        print "Got TrackInfo: %r" % res.raw
+        cli.send(message.msg("#everfree", "Now Playing: %s" % str(res)))
+    cli.send(message.msg("#everfree", "Lost connection to server."))
