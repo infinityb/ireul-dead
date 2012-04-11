@@ -66,7 +66,7 @@ def get_metadata(url):
             continue
     conn.send("GET {mount} HTTP/1.1\r\n".format(mount=parse_result.path))
     conn.send("HOST: {hostname}\r\n".format(hostname=hostname))
-    conn.send("User-Agent: BrohoofX\r\n")
+    conn.send("User-Agent: hanyuu2\r\n")
     conn.send("Icy-MetaData: 1\r\n")
     conn.send("\r\n")
     return _yield_metainfo(conn.makefile())

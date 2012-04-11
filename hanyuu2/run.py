@@ -18,7 +18,7 @@ cli.start()
 gevent.sleep(3)
 
 while True:
-    for res in get_ogg_metadata(channels['ogg-test']):
+    for res in get_icy_metadata(channels['r/a/dio']):
         print u"Got TrackInfo: %r" % res.raw
         cli.send(message.msg(JOIN_CHANNEL, u"Now Playing: %s" % unicode(res)))
     cli.send(message.msg(JOIN_CHANNEL, "Lost connection to server."))

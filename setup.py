@@ -11,6 +11,9 @@ requires = [
     'flyrc', # git://github.com/mrflea/flyrc.git
     'libsre', # git://github.com/infinityb/libsre.git
     'audiotools', # git://github.com/tuffy/python-audio-tools.git
+    'mutagen',
+    'sqlalchemy',
+    'python-magic',
     ]
 
 setup(name='hanyuu2',
