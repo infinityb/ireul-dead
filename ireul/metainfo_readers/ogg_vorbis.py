@@ -7,6 +7,8 @@ from mutagen.oggvorbis import (
     OggVCommentDict,
 )
 
+unspecified=object()
+
 class VorbisMetaData(object):
     def __init__(self, data):
         self._data = data
@@ -15,16 +17,18 @@ class VorbisMetaData(object):
     def raw(self):
         return self._data
 
-    def find_tag(self, name):
+    def find_tag(self, name, default=unspecified):
         for key, val in self._data:
             if key == name:
                 return val
-        raise KeyError
+        if default is unspecified:
+            raise KeyError
+        return default
 
     def __unicode__(self):
         return u'%s - %s' % (
-            self.find_tag('artist'),
-            self.find_tag('title'))
+            self.find_tag('artist', None),
+            self.find_tag('title', None))
 
 
 def _yield_metainfo(fh):
