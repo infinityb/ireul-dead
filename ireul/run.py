@@ -3,9 +3,9 @@ import gevent
 
 from flyrc import message
 
-from hanyuu2.irc_bot import cli, JOIN_CHANNEL
-from hanyuu2.metainfo_readers.icy import get_metadata as get_icy_metadata
-from hanyuu2.metainfo_readers.ogg_vorbis import get_metadata as get_ogg_metadata
+from ireul.irc_bot import cli, JOIN_CHANNEL
+from ireul.metainfo_readers.icy import get_metadata as get_icy_metadata
+from ireul.metainfo_readers.ogg_vorbis import get_metadata as get_ogg_metadata
 
 channels = {
     'everfree': 'http://208.67.225.10:5800/stream/1/',

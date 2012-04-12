@@ -1,4 +1,4 @@
-from hanyuu2.environment import metadata
+from ireul.environment import metadata
 
 from sqlalchemy import (
     Table,

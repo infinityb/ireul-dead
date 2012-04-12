@@ -2,8 +2,8 @@ import audiotools
 import magic
 import gevent.queue
 
-from hanyuu2.storage.filesystem import cont_addr
-from hanyuu2.storage.models import (
+from ireul.storage.filesystem import cont_addr
+from ireul.storage.models import (
     TrackOriginal,
     TrackDerived,
     Blob,

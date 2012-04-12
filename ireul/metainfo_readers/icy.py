@@ -6,8 +6,8 @@ import gevent
 import gevent.queue
 from gevent import socket
 
-from hanyuu2.helpers.icy import parse_icy
-from hanyuu2.helpers.net import resolve_netloc
+from ireul.helpers.icy import parse_icy
+from ireul.helpers.net import resolve_netloc
 
 
 class ICYMetaData(object):
@@ -66,7 +66,7 @@ def get_metadata(url):
             continue
     conn.send("GET {mount} HTTP/1.1\r\n".format(mount=parse_result.path))
     conn.send("HOST: {hostname}\r\n".format(hostname=hostname))
-    conn.send("User-Agent: hanyuu2\r\n")
+    conn.send("User-Agent: ireul\r\n")
     conn.send("Icy-MetaData: 1\r\n")
     conn.send("\r\n")
     return _yield_metainfo(conn.makefile())
