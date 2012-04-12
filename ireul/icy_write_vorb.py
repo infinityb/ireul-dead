@@ -35,10 +35,19 @@ def yield_pages(track_derived):
 
 def ogg_show_page(input_page_stream):
     for page in input_page_stream:
-        #import pdb; pdb.set_trace()
         yield page
 
-def ogg_make_monotonic(input_page_stream):
+def ogg_make_pos_monotonic(input_page_stream):
+    t_initial = 0
+    last_pos = 0
+    for page in input_page_stream:
+        if page.position == 0:
+            t_initial = last_pos
+        last_pos = page.position
+        page.position += t_initial
+        yield page
+
+def ogg_make_seq_monotonic(input_page_stream):
     seq_ctr = itertools.count()
     for page in input_page_stream:
         page.sequence = next(seq_ctr)
@@ -59,8 +68,8 @@ def monitor_position(input_page_stream):
     for page in input_page_stream:
         delta = page.position - prev_pos
         time_sum += float(delta)/44100
-        print "(serial=%d) seq_delta = %d, ~~%0.3fs"  % (
-               page.serial, delta, float(delta)/44100)
+        print "serial=%d pos=%d pos_delta = %d, ~~%0.3fs"  % (
+               page.serial, page.position, delta, float(delta)/44100)
         prev_pos = page.position
         yield page
     print "total position = %d" % prev_pos
@@ -116,7 +125,8 @@ def send_stream(url, source_file_iter):
     ogg_stream = compose(
             ogg_show_page,
             ogg_make_single_serial,
-            ogg_make_monotonic,
+            ogg_make_seq_monotonic,
+            ogg_make_pos_monotonic,
             apply_timing,
             yield_pages)
 
