@@ -62,6 +62,14 @@ class TrackOriginal(object):
     def metadata(self, val):
         self._metadata = pickle.dumps(val)
 
+    @hybrid_property
+    def artist(self):
+        return self._artist
+
+    @hybrid_property
+    def title(self):
+        return self._title
+
     def open(self):
         return cont_addr.open(self.blob.cont_addr)
 
@@ -90,6 +98,10 @@ class TrackDerived(object):
             self._codec,
             self._compression_params,
             self._added_at)
+
+    @hybrid_property
+    def id(self):
+        return self._id
 
     @hybrid_property
     def blob(self):
