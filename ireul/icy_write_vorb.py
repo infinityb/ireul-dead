@@ -35,16 +35,16 @@ def yield_pages(track_derived):
 
 def ogg_show_page(input_page_stream):
     for page in input_page_stream:
+        print repr(page)
         yield page
 
 def ogg_make_pos_monotonic(input_page_stream):
-    t_initial = 0
+    track_offset = None
     last_pos = 0
     for page in input_page_stream:
-        if page.position == 0:
-            t_initial = last_pos
-        last_pos = page.position
-        page.position += t_initial
+        if page.position == 0: # starting a new track
+            track_offset = last_pos
+        page.position = last_pos = track_offset + page.position
         yield page
 
 def ogg_make_seq_monotonic(input_page_stream):
@@ -59,17 +59,24 @@ def ogg_make_single_serial(input_page_stream):
         page.serial = serial
         yield page
 
+def ogg_fix_header(input_page_stream):
+    yield next(input_page_stream)
+    for page in input_page_stream:
+        page.first = False
+        yield page
 
 def monitor_position(input_page_stream):
     page = next(input_page_stream)
     yield page
+    t_initial = time.time()
     prev_pos = page.position
-    time_sum =0 
+    time_sum = 0
     for page in input_page_stream:
         delta = page.position - prev_pos
         time_sum += float(delta)/44100
-        print "serial=%d pos=%d pos_delta = %d, ~~%0.3fs"  % (
-               page.serial, page.position, delta, float(delta)/44100)
+        wall_clock_delta = time.time() - t_initial - float(page.position)/44100
+        print "serial=%d pos=%d time_delta=%.3fs pos_delta = %d samples, %0.3fs"  % (
+                page.serial, page.position, wall_clock_delta, delta, float(delta)/44100)
         prev_pos = page.position
         yield page
     print "total position = %d" % prev_pos
@@ -77,16 +84,10 @@ def monitor_position(input_page_stream):
 
 def apply_timing(input_page_stream):
     time_initial = time.time()
-    ovi = None
     for page in input_page_stream:
-        try:
-            # if we get an info page, reset counters
-            ovi = OggVorbisInfo(None, page=page)
-            time_initial = time.time()
-        except TryNextPage:
-            pass
         real_time = time.time() - time_initial
-        play_time = float(page.position)/ovi.sample_rate
+        play_time = float(page.position)/44100
+        print "sleeping %r" % max(0.0, play_time - real_time)
         gevent.sleep(max(0.0, play_time - real_time))
         yield page
 
@@ -122,18 +123,26 @@ def send_stream(url, source_file_iter):
     fileobj.readline()
     fileobj.readline()
 
-    ogg_stream = compose(
-            ogg_show_page,
-            ogg_make_single_serial,
+
+    ogg_stream_pre = compose(
             ogg_make_seq_monotonic,
-            ogg_make_pos_monotonic,
+            ogg_make_single_serial,
+            )
+
+    ogg_stream_post = compose(
+            monitor_position,
             apply_timing,
-            yield_pages)
+            ogg_show_page,
+            # ogg_fix_header,
+            ogg_make_pos_monotonic,
+            )
 
-    for track_derived in source_file_iter:
-        for page in ogg_stream(track_derived):
-            fileobj.write(page.write())
+    # get all the pages
+    def stream_pages():
+        for track_derived in source_file_iter:
+            for page in ogg_stream_pre(yield_pages(track_derived)):
+                yield page
 
-
-
-
+    # apply transforms and write them out
+    for page in ogg_stream_post(stream_pages()):
+        fileobj.write(page.write())
