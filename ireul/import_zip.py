@@ -40,8 +40,12 @@ for info in zip_.infolist():
             metadata.delete_image(metadata.images()[0])
         track.metadata = metadata
 
+        if session.query(m.Blob).filter(
+                m.Blob.cont_addr == track.blob.cont_addr).count() > 0:
+            continue
+
         session.add(track)
+        session.commit()
     except audiotools.UnsupportedFile:
         pass
-session.commit()
 

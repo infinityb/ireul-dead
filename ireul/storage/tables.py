@@ -58,7 +58,7 @@ fave = \
                 Column('id', Integer, primary_key=True),
                 Column('track_orig_id', Integer,
                     ForeignKey(track_orig.c.id),
-                    nullable=False)
+                    nullable=False),
                 Column('user_id', Integer,
                     ForeignKey(user.c.id),
                     nullable=False))
