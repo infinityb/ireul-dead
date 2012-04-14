@@ -16,7 +16,7 @@ from sqlalchemy.types import BINARY
 blob = \
         Table('blob', metadata,
               Column('id', Integer, primary_key=True),
-              Column('cont_addr', String, nullable=False),
+              Column('cont_addr', String, nullable=False, unique=True),
               Column('mime_type', String, nullable=False),
               Column('added_at', DateTime, nullable=False))
 
@@ -24,7 +24,9 @@ track_orig = \
         Table('track_orig', metadata,
               Column('id', Integer, primary_key=True),
               Column('blob_id', Integer,
-                     ForeignKey(blob.c.id), nullable=False),
+                     ForeignKey(blob.c.id),
+                     nullable=False,
+                     unique=True),
               # pickle the metadata for later
               Column('metadata', BINARY),
               Column('artist', String),
@@ -40,8 +42,24 @@ track_derived = \
                     ),
               Column('blob_id', Integer,
                      ForeignKey(blob.c.id),
-                     nullable=False
-                    ),
+                     nullable=False,
+                     unique=True),
               Column('codec', String, nullable=True),
               Column('encoding_params', EncodingParams, nullable=True),
               Column('added_at', DateTime))
+
+user = \
+        Table('user', metadata,
+                Column('id', Integer, primary_key=True),
+                Column('username', String, nullable=False, unique=True))
+
+fave = \
+        Table('fave', metadata,
+                Column('id', Integer, primary_key=True),
+                Column('track_orig_id', Integer,
+                    ForeignKey(track_orig.c.id),
+                    nullable=False)
+                Column('user_id', Integer,
+                    ForeignKey(user.c.id),
+                    nullable=False))
+

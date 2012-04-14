@@ -13,12 +13,28 @@ from base64 import b64encode
 
 compose = lambda *fx: reduce(lambda f, g: lambda *args, **kwargs: f(g(*args, **kwargs)), fx)
 
+
+class StreamerEvent(object):
+    def __init__(self, type_):
+        self._type = type_
+
+    @property
+    def type(self):
+        return self._type
+
+
+class ExternalEvent(StreamerEvent): pass
+
+class InternalEvent(StreamerEvent): pass
+
+
 def create_metadata_packet(tags):
     vc = VComment()
     vc.extend(tags)
     return "\x03vorbis"+vc.write()
 
 def yield_pages(track_derived):
+    yield InternalEvent("new_track")
     fh = track_derived.open()
     yield OggPage(fh)
     tmp = OggPage(fh)
@@ -34,6 +50,42 @@ def yield_pages(track_derived):
     except EOFError:
         pass
 
+
+def inject_events(event_queue):
+    def _injector(input_page_stream):
+        for page in input_page_stream:
+             if event_queue.empty():
+                 yield page
+                 continue
+             tmp = event_queue.get()
+             print "got command: %r" % tmp
+             yield tmp
+    return _injector
+
+
+def event_handle_ext_skip_track(input_page_stream):
+    skipping = False
+    track_completed = False
+    for page in input_page_stream:
+        if isinstance(page, ExternalEvent):
+            if page.type == 'skip_track':
+                skipping = True
+                track_completed = False
+        if not skipping:
+            yield page
+            continue
+        if hasattr(page, 'complete') and page.complete:
+            track_completed = True
+        if isinstance(page, InternalEvent) and page.type == 'new_track':
+            yield page
+            skipping = False
+            track_completed = False
+
+def strip_events(input_page_stream):
+    for page in input_page_stream:
+        if isinstance(page, OggPage):
+            yield page
+
 def ogg_show_page(input_page_stream):
     for page in input_page_stream:
         print repr(page)
@@ -43,15 +95,17 @@ def ogg_make_pos_monotonic(input_page_stream):
     track_offset = None
     last_pos = 0
     for page in input_page_stream:
-        if page.position == 0: # starting a new track
-            track_offset = last_pos
-        page.position = last_pos = track_offset + page.position
+        if isinstance(page, OggPage):
+            if page.position == 0: # starting a new track
+                track_offset = last_pos
+            page.position = last_pos = track_offset + page.position
         yield page
 
 def ogg_make_seq_monotonic(input_page_stream):
     seq_ctr = itertools.count()
     for page in input_page_stream:
-        page.sequence = next(seq_ctr)
+        if isinstance(page, OggPage):
+            page.sequence = next(seq_ctr)
         yield page
 
 def ogg_make_single_serial(input_page_stream):
@@ -100,7 +154,7 @@ def monitor_info_pages(input_page_stream):
         yield page
 
 
-def send_stream(url, source_file_iter):
+def send_stream(url, source_file_iter, pre_transforms=[], post_transforms=[]):
     """Returns an iterable yielding the ICY metadata"""
     parse_result = urlparse.urlparse(url)
     netloc = parse_result.netloc
@@ -131,15 +185,18 @@ def send_stream(url, source_file_iter):
 
     ogg_stream_pre = compose(
             ogg_make_seq_monotonic,
-            ogg_make_single_serial,
+            #*pre_transforms
             )
 
     ogg_stream_post = compose(
-            # monitor_position,
+            #monitor_position,
             apply_timing,
+            strip_events,
             # ogg_show_page,
             # ogg_fix_header,
             ogg_make_pos_monotonic,
+            event_handle_ext_skip_track,
+            *post_transforms
             )
 
     # get all the pages
@@ -150,4 +207,5 @@ def send_stream(url, source_file_iter):
 
     # apply transforms and write them out
     for page in ogg_stream_post(stream_pages()):
+        #import pdb; pdb.set_trace()
         fileobj.write(page.write())

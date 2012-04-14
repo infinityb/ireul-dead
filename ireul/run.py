@@ -4,8 +4,12 @@ import gevent
 from flyrc import message
 from ireul import settings
 from ireul.streamer import RandomSelectionStrategy, TrackQueue, track_getter
-from ireul.icy_write_vorb import send_stream
-from ireul.irc_bot import cli, JOIN_CHANNEL, QueueHandler
+from ireul.icy_write_vorb import send_stream, inject_events
+from ireul.irc_bot import cli, JOIN_CHANNEL
+from ireul.irc_bot import (
+        QueueHandler,
+        NextTrackHandler,
+    )
 from ireul.metainfo_readers.icy import get_metadata as get_icy_metadata
 from ireul.metainfo_readers.ogg_vorbis import get_metadata as get_ogg_metadata
 from ireul.environment import DBSession
@@ -17,15 +21,20 @@ channels = {
     'skys-int': 'http://vita.ib.ys:8000/cocks.ogg',
 }
 
+
+command_queue = gevent.queue.Queue()
 session = DBSession()
 track_queue = TrackQueue()
 selection_strategy = RandomSelectionStrategy()
 cli.add_handler(QueueHandler(track_queue, session))
+cli.add_handler(NextTrackHandler(command_queue))
 cli.start()
 
 def send_stream_greenlet():
     send_stream(settings.STREAM_URL,
-            track_getter(track_queue, 1, selection_strategy))
+            track_getter(track_queue, 5, selection_strategy),
+            post_transforms=[inject_events(command_queue)],
+            )
 
 gevent.Greenlet.spawn(send_stream_greenlet)
 gevent.sleep(3)

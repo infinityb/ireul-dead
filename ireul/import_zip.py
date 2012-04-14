@@ -29,9 +29,11 @@ session = DBSession()
 for info in zip_.infolist():
     print "opening: %r" % info.filename
     try:
-        tr_fh = FakeSeekZipExtFile(lambda: zip_.open(info.filename, 'r'))
-        track = u.insert_track(tr_fh)
-        tr_fh.close()
+        try:
+            tr_fh = FakeSeekZipExtFile(lambda: zip_.open(info.filename, 'r'))
+            track = u.insert_track(tr_fh)
+        finally:
+            tr_fh.close()
 
         metadata = track.metadata
         while len(metadata.images()) > 0:
