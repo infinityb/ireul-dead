@@ -8,6 +8,8 @@ from sqlalchemy import (
     DateTime,
     ForeignKey
 )
+from ireul.lib.fields import EncodingParams
+
 
 from sqlalchemy.types import BINARY
 
@@ -41,5 +43,5 @@ track_derived = \
                      nullable=False
                     ),
               Column('codec', String, nullable=True),
-              Column('compression_params', String, nullable=True),
+              Column('encoding_params', EncodingParams, nullable=True),
               Column('added_at', DateTime))

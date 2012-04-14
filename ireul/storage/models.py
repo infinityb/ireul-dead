@@ -51,6 +51,10 @@ class TrackOriginal(object):
             self._title)
 
     @hybrid_property
+    def id(self):
+        return self._id
+
+    @hybrid_property
     def blob(self):
         return self._blob
 
@@ -76,6 +80,8 @@ class TrackOriginal(object):
     def open_audiotools(self):
         return audiotools.open(cont_addr.addr_to_path(self.blob.cont_addr))
 
+    def get_name(self):
+        return u"%s - %s" % (self.artist, self.title)
 
 
 class TrackDerived(object):
@@ -106,6 +112,10 @@ class TrackDerived(object):
     @hybrid_property
     def blob(self):
         return self._blob
+
+    @hybrid_property
+    def codec(self):
+        return self._codec
 
     @property
     def compression_params(self):

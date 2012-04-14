@@ -1,3 +1,5 @@
+import json
+import tempfile
 import audiotools
 import magic
 import gevent.queue
@@ -8,9 +10,6 @@ from ireul.storage.models import (
     TrackDerived,
     Blob,
 )
-
-import audiotools
-import json
 
 _magic = magic.Magic(mime=True)
 
@@ -24,10 +23,15 @@ def _ca_copy_contents(src_fh):
     src_fh.close()
     return dst_fh.close()
 
-def insert_track(source_filename):
-    mimetype = _magic.from_file(source_filename)
-    hash_ = _ca_copy_contents(open(source_filename, 'rb'))
-    source_file = audiotools.open(source_filename)
+def insert_track(source_filename_or_fh):
+    if isinstance(source_filename_or_fh, str):
+        source_filename_or_fh = open(source_filename_or_fh, 'rb')
+
+    buf = source_filename_or_fh.read(4096)
+    source_filename_or_fh.seek(0)
+    mimetype = _magic.from_buffer(buf)
+    hash_ = _ca_copy_contents(source_filename_or_fh)
+    source_file = audiotools.open(cont_addr.addr_to_path(hash_))
     metadata = source_file.get_metadata()
     return TrackOriginal(Blob(hash_, mimetype),
                          metadata,
@@ -48,8 +52,10 @@ def transcode(track_original, target_codec, compression_params):
                 type(track_original)
     if not hasattr(target_codec, 'from_pcm'):
         raise TypeError, "first argument must have from_pcm method"
-    target_codec.from_pcm("/tmp/cocks", track_original.open_audiotools().to_pcm())
-    hash_ = _ca_copy_contents(open("/tmp/cocks", 'rb'))
+    tmp_file = tempfile.mkstemp()
+    target_codec.from_pcm(tmp_file, track_original.open_audiotools().to_pcm())
+    hash_ = _ca_copy_contents(open(tmp_file, 'rb'))
+    os.unlink(tmp_file)
     # FIXME: hardcoded mime
     blob = Blob(hash_, "audio/ogg")
     return TrackDerived(track_original, blob, target_codec.__name__,
