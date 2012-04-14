@@ -61,6 +61,7 @@ def transcode(track_original, target_codec, encoding_params):
         hash_ = _ca_copy_contents(open(tmp_file, 'rb'))
     finally:
         os.unlink(tmp_file)
+        os.close(fd)
     # FIXME: hardcoded mime
     blob = Blob(hash_, "audio/ogg")
     return TrackDerived(track_original, blob, target_codec.__name__,
