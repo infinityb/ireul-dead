@@ -45,13 +45,16 @@ def get_metadata(url):
     parse_result = urlparse.urlparse(url)
     hostname, addresses = resolve_netloc(parse_result.netloc)
     conn = None
+    ex = list()
     for af, address in addresses:
         conn = socket.socket(af, socket.SOCK_STREAM)
         try:
             conn.connect(address)
             break
-        except socket.error:
-            continue
+        except socket.error as e:
+            ex.append(e)
+    if conn is None:
+        raise Exception(ex)
     conn.send("GET {mount} HTTP/1.1\r\n".format(mount=parse_result.path))
     conn.send("HOST: {hostname}\r\n".format(hostname=hostname))
     conn.send("User-Agent: ireul\r\n")
