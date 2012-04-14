@@ -2,6 +2,7 @@
 import gevent
 
 from flyrc import message
+from ireul import settings
 from ireul.streamer import RandomSelectionStrategy, TrackQueue, track_getter
 from ireul.icy_write_vorb import send_stream
 from ireul.irc_bot import cli, JOIN_CHANNEL, QueueHandler
@@ -23,7 +24,7 @@ cli.add_handler(QueueHandler(track_queue, session))
 cli.start()
 
 def send_stream_greenlet():
-    send_stream('http://vita.ib.ys:8000/cocks.ogg',
+    send_stream(settings.STREAM_URL,
             track_getter(track_queue, 1, selection_strategy))
 
 gevent.Greenlet.spawn(send_stream_greenlet)

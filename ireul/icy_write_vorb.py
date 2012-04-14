@@ -9,6 +9,7 @@ from mutagen.ogg import OggPage
 from mutagen.oggvorbis import OggVorbisInfo, TryNextPage
 from mutagen._vorbis import VCommentDict, VComment
 from cStringIO import StringIO
+from base64 import b64encode
 
 compose = lambda *fx: reduce(lambda f, g: lambda *args, **kwargs: f(g(*args, **kwargs)), fx)
 
@@ -102,7 +103,11 @@ def monitor_info_pages(input_page_stream):
 def send_stream(url, source_file_iter):
     """Returns an iterable yielding the ICY metadata"""
     parse_result = urlparse.urlparse(url)
-    hostname, addresses = resolve_netloc(parse_result.netloc)
+    netloc = parse_result.netloc
+    user_pass = None
+    if '@' in netloc:
+        user_pass, netloc = parse_result.netloc.split('@')
+    hostname, addresses = resolve_netloc(netloc)
     conn = None
     for af, address in addresses:
         conn = socket.socket(af, socket.SOCK_STREAM)
@@ -112,7 +117,8 @@ def send_stream(url, source_file_iter):
         except socket.error:
             continue
     conn.send("SOURCE {mount} HTTP/1.0\r\n".format(mount=parse_result.path))
-    conn.send("Authorization: Basic c291cmNlOmNvY2ttZQ==\r\n")
+    if user_pass:
+        conn.send("Authorization: Basic %s\r\n" % b64encode(user_pass))
     conn.send("HOST: {hostname}\r\n".format(hostname=hostname))
     conn.send("User-Agent: ireul\r\n")
     conn.send("Content-Type: application/ogg\r\n")
