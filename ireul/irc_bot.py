@@ -9,6 +9,7 @@ cli.add_handler(handler.BasicChannelCommand(prefix='!'))
 # cli.add_handler(handler.QuitWhenAsked())
 
 from flyrc import handler, message
+from ireul.storage import models as m
 import sqlalchemy.orm.exc as sqlao_e
 class QueueHandler(object):
     DEPENDENCIES = [handler.BasicCommand]
@@ -18,10 +19,12 @@ class QueueHandler(object):
         self._sess = session
 
     def irc_command_show_queue(self, client, source, target, args):
+        print "%r.irc_command_show_queue(%r, %r, %r, %r)" % (self, client, source, target, args)
         for track in self._queue:
             client.send(message.msg(JOIN_CHANNEL, track.get_name()))
 
     def irc_command_enqueue(self, client, source, target, args):
+        print "%r.irc_command_enqueue(%r, %r, %r, %r)" % (self, client, source, target, args)
         try:
             track_id = int(args)
         except (TypeError, ValueError) as e:

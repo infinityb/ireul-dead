@@ -87,7 +87,6 @@ def apply_timing(input_page_stream):
     for page in input_page_stream:
         real_time = time.time() - time_initial
         play_time = float(page.position)/44100
-        print "sleeping %r" % max(0.0, play_time - real_time)
         gevent.sleep(max(0.0, play_time - real_time))
         yield page
 
@@ -130,9 +129,9 @@ def send_stream(url, source_file_iter):
             )
 
     ogg_stream_post = compose(
-            monitor_position,
+            # monitor_position,
             apply_timing,
-            ogg_show_page,
+            # ogg_show_page,
             # ogg_fix_header,
             ogg_make_pos_monotonic,
             )

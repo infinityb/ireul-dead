@@ -1,3 +1,4 @@
+import os
 import json
 import tempfile
 import audiotools
@@ -38,13 +39,13 @@ def insert_track(source_filename_or_fh):
                          metadata.artist_name,
                          metadata.track_name)
 
-def transcode(track_original, target_codec, compression_params):
+def transcode(track_original, target_codec, encoding_params):
     """Return a track with a new codec and compression parameters"""
     if target_codec is not audiotools.VorbisAudio: # FIXME: remove
         raise TypeError, "Target codec must be audiotools.VorbisAudio for now"
     transcoded_ctr = track_original.derivatives.filter_by(
-        _codec=target_codec.__name__,
-        _compression_params=json.dumps(compression_params)).count()
+        codec=target_codec.__name__,
+        encoding_params=encoding_params).count()
     if transcoded_ctr > 0:
         raise Exception, "File already transcoded to this format."
     if not isinstance(track_original, TrackOriginal):
@@ -52,12 +53,16 @@ def transcode(track_original, target_codec, compression_params):
                 type(track_original)
     if not hasattr(target_codec, 'from_pcm'):
         raise TypeError, "first argument must have from_pcm method"
-    tmp_file = tempfile.mkstemp()
-    target_codec.from_pcm(tmp_file, track_original.open_audiotools().to_pcm())
-    hash_ = _ca_copy_contents(open(tmp_file, 'rb'))
-    os.unlink(tmp_file)
+    fd, tmp_file = tempfile.mkstemp()
+    try:
+        target_codec.from_pcm(tmp_file,
+                track_original.open_audiotools().to_pcm(),
+                encoding_params)
+        hash_ = _ca_copy_contents(open(tmp_file, 'rb'))
+    finally:
+        os.unlink(tmp_file)
     # FIXME: hardcoded mime
     blob = Blob(hash_, "audio/ogg")
     return TrackDerived(track_original, blob, target_codec.__name__,
-                        compression_params)
+                        encoding_params)
 

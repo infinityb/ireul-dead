@@ -53,9 +53,7 @@ def track_getter(src, min_queue, strat):
             for track in strat.get_tracks(min_queue - len(src)):
                 src.enqueue(track)
         track_orig = src.pop()
-        candidates = track_orig.derivatives.filter_by(
-                codec='VorbisAudio',
-                _compression_params='["-b", "128"]')
+        candidates = track_orig.derivatives.filter_by(codec='VorbisAudio')
         if candidates.count() == 0:
             # transcode
             pass
@@ -63,7 +61,3 @@ def track_getter(src, min_queue, strat):
             yield candidates.one()
         else:
             print "too many candidates"
-
-if __name__ == '__main__':
-    from ireul.icy_write_vorb import send_stream
-    send_stream('http://vita.ib.ys:8000/cocks.ogg', track_getter(tq))

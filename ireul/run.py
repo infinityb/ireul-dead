@@ -16,7 +16,7 @@ channels = {
     'skys-int': 'http://vita.ib.ys:8000/cocks.ogg',
 }
 
-session = DBSession
+session = DBSession()
 track_queue = TrackQueue()
 selection_strategy = RandomSelectionStrategy()
 cli.add_handler(QueueHandler(track_queue, session))
@@ -24,7 +24,7 @@ cli.start()
 
 def send_stream_greenlet():
     send_stream('http://vita.ib.ys:8000/cocks.ogg',
-            track_getter(track_queue, 10, selection_strategy))
+            track_getter(track_queue, 1, selection_strategy))
 
 gevent.Greenlet.spawn(send_stream_greenlet)
 gevent.sleep(3)

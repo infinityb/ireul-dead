@@ -86,11 +86,11 @@ class TrackOriginal(object):
 
 class TrackDerived(object):
     def __init__(self, original, blob, codec,
-                 compression_params, added_at=unspecified):
+                 encoding_params, added_at=unspecified):
         self.original = original
         self._blob = blob
         self._codec = codec
-        self.compression_params = compression_params
+        self._encoding_params = encoding_params
         if added_at is unspecified:
             added_at = datetime.datetime.now()
         self._added_at = added_at
@@ -102,7 +102,7 @@ class TrackDerived(object):
             self.original,
             self._blob,
             self._codec,
-            self._compression_params,
+            self._encoding_params,
             self._added_at)
 
     @hybrid_property
@@ -117,13 +117,9 @@ class TrackDerived(object):
     def codec(self):
         return self._codec
 
-    @property
-    def compression_params(self):
-        return json.loads(self._compression_params)
-
-    @compression_params.setter
-    def compression_params(self, val):
-        self._compression_params = json.dumps(val)
+    @hybrid_property
+    def encoding_params(self):
+        return self._encoding_params
 
     def open(self):
         return cont_addr.open(self.blob.cont_addr)
