@@ -14,7 +14,8 @@ from .stream_event import (
         StreamerEvent,
         OggPageEvent,
         SkipTrackEvent,
-        TrackStartedEvent
+        TrackStartedEvent,
+        TrackEndedEvent,
     )
 
 compose = lambda *fx: reduce(lambda f, g: lambda *args, **kwargs: f(g(*args, **kwargs)), fx)
