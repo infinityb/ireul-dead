@@ -10,22 +10,14 @@ from mutagen.oggvorbis import OggVorbisInfo, TryNextPage
 from mutagen._vorbis import VCommentDict, VComment
 from cStringIO import StringIO
 from base64 import b64encode
+from .stream_event import (
+        StreamerEvent,
+        OggPageEvent,
+        SkipTrackEvent,
+        TrackStartedEvent
+    )
 
 compose = lambda *fx: reduce(lambda f, g: lambda *args, **kwargs: f(g(*args, **kwargs)), fx)
-
-
-class StreamerEvent(object):
-    def __init__(self, type_):
-        self._type = type_
-
-    @property
-    def type(self):
-        return self._type
-
-
-class ExternalEvent(StreamerEvent): pass
-
-class InternalEvent(StreamerEvent): pass
 
 
 def create_metadata_packet(tags):
@@ -33,125 +25,99 @@ def create_metadata_packet(tags):
     vc.extend(tags)
     return "\x03vorbis"+vc.write()
 
-def yield_pages(track_derived):
-    yield InternalEvent("new_track")
+def yield_events(track_derived):
     fh = track_derived.open()
-    yield OggPage(fh)
+    yield TrackStartedEvent(track_derived)
+    yield OggPageEvent(OggPage(fh))
     tmp = OggPage(fh)
     # replace outgoing tag
     tmp.packets[0] = create_metadata_packet([
         ('title', track_derived.original.title),
+        ('album', track_derived.original.metadata.album_name),
         ('artist', track_derived.original.artist),
         ('x-ireul-id', unicode(track_derived.id))])
-    yield tmp
+    yield OggPageEvent(tmp)
     try:
         while True:
-            yield OggPage(fh)
+            yield OggPageEvent(OggPage(fh))
     except EOFError:
         pass
 
 
 def inject_events(event_queue):
-    def _injector(input_page_stream):
-        for page in input_page_stream:
-             if event_queue.empty():
-                 yield page
-                 continue
-             tmp = event_queue.get()
-             print "got command: %r" % tmp
-             yield tmp
+    def _injector(input_event_stream):
+        for event in input_event_stream:
+             if not event_queue.empty():
+                 yield event_queue.get()
+             yield event
     return _injector
 
 
-def event_handle_ext_skip_track(input_page_stream):
-    skipping = False
-    track_completed = False
-    for page in input_page_stream:
-        if isinstance(page, ExternalEvent):
-            if page.type == 'skip_track':
-                skipping = True
-                track_completed = False
-        if not skipping:
-            yield page
-            continue
-        if hasattr(page, 'complete') and page.complete:
-            track_completed = True
-        if isinstance(page, InternalEvent) and page.type == 'new_track':
-            yield page
-            skipping = False
-            track_completed = False
 
-def strip_events(input_page_stream):
-    for page in input_page_stream:
-        if isinstance(page, OggPage):
-            yield page
+def ogg_show_event(input_event_stream):
+    for event in input_event_stream:
+        print repr(event)
+        yield event
 
-def ogg_show_page(input_page_stream):
-    for page in input_page_stream:
-        print repr(page)
-        yield page
-
-def ogg_make_pos_monotonic(input_page_stream):
+def ogg_make_pos_monotonic(input_event_stream):
     track_offset = None
     last_pos = 0
-    for page in input_page_stream:
-        if isinstance(page, OggPage):
-            if page.position == 0: # starting a new track
+    for event in input_event_stream:
+        if isinstance(event, OggPageEvent):
+            if event.page.position == 0: # starting a new track
                 track_offset = last_pos
-            page.position = last_pos = track_offset + page.position
-        yield page
+            event.page.position = last_pos = track_offset + event.page.position
+        yield event
 
-def ogg_make_seq_monotonic(input_page_stream):
+def ogg_make_seq_monotonic(input_event_stream):
     seq_ctr = itertools.count()
-    for page in input_page_stream:
-        if isinstance(page, OggPage):
-            page.sequence = next(seq_ctr)
-        yield page
+    for event in input_event_stream:
+        if isinstance(event, OggPageEvent):
+            event.page.sequence = next(seq_ctr)
+        yield event
 
-def ogg_make_single_serial(input_page_stream):
+def ogg_make_single_serial(input_event_stream):
     serial = random.randint(0, 2**32)
-    for page in input_page_stream:
-        page.serial = serial
-        yield page
+    for event in input_event_stream:
+        if isinstance(event, OggPageEvent):
+            event.page.serial = serial
+        yield event
 
-def ogg_fix_header(input_page_stream):
-    yield next(input_page_stream)
-    for page in input_page_stream:
-        page.first = False
-        yield page
+def ogg_fix_header(input_event_stream):
+    yield next(input_event_stream)
+    for event in input_event_stream:
+        event.page.first = False
+        yield event
 
-def monitor_position(input_page_stream):
-    page = next(input_page_stream)
-    yield page
+""" Broken
+def monitor_position(input_event_stream):
+    event = next(input_event_stream)
+    yield event
     t_initial = time.time()
-    prev_pos = page.position
+    prev_pos = event.page.position
     time_sum = 0
-    for page in input_page_stream:
-        delta = page.position - prev_pos
+    for event in input_event_stream:
+        if isinstance(event, OggPageEvent):
+
+        delta = event.page.position - prev_pos
         time_sum += float(delta)/44100
-        wall_clock_delta = time.time() - t_initial - float(page.position)/44100
+        wall_clock_delta = time.time() - t_initial - float(event.page.position)/44100
         print "serial=%d pos=%d time_delta=%.3fs pos_delta = %d samples, %0.3fs"  % (
-                page.serial, page.position, wall_clock_delta, delta, float(delta)/44100)
-        prev_pos = page.position
-        yield page
+                event.page.serial, event.page.position, wall_clock_delta, delta, float(delta)/44100)
+        prev_pos = event.page.position
+        yield event
     print "total position = %d" % prev_pos
     print "total time = %dm:%02.2fs" % divmod(time_sum, 60)
+"""
 
-def apply_timing(input_page_stream):
+def apply_timing(input_event_stream):
     time_initial = time.time()
-    for page in input_page_stream:
-        real_time = time.time() - time_initial
-        play_time = float(page.position)/44100
-        gevent.sleep(max(0.0, play_time - real_time))
-        yield page
-
-def monitor_info_pages(input_page_stream):
-    for page in input_page_stream:
-        try:
-            ovi = OggVorbisInfo(None, page=page)
-            #print "OggVorbisInfo = %r" % ovi
-        except TryNextPage: pass
-        yield page
+    for event in input_event_stream:
+        if isinstance(event, OggPageEvent):
+            real_time = time.time() - time_initial
+            play_time = float(event.page.position)/44100
+            gevent.sleep(max(0.0, play_time - real_time))
+        yield event
 
 
 def send_stream(url, source_file_iter, pre_transforms=[], post_transforms=[]):
@@ -183,29 +149,29 @@ def send_stream(url, source_file_iter, pre_transforms=[], post_transforms=[]):
     fileobj.readline()
 
 
-    ogg_stream_pre = compose(
+    ogg_event_pre = compose(
             ogg_make_seq_monotonic,
-            #*pre_transforms
+            OggPageEvent.pre_transform,
+            *pre_transforms
             )
 
-    ogg_stream_post = compose(
-            #monitor_position,
+    ogg_event_post = compose(
             apply_timing,
-            strip_events,
-            # ogg_show_page,
-            # ogg_fix_header,
             ogg_make_pos_monotonic,
-            event_handle_ext_skip_track,
+            SkipTrackEvent.post_transform,
             *post_transforms
             )
 
     # get all the pages
-    def stream_pages():
+    def stream_events():
         for track_derived in source_file_iter:
-            for page in ogg_stream_pre(yield_pages(track_derived)):
-                yield page
+            for event in ogg_event_pre(yield_events(track_derived)):
+                yield event
 
     # apply transforms and write them out
-    for page in ogg_stream_post(stream_pages()):
+    for event in ogg_event_post(stream_events()):
         #import pdb; pdb.set_trace()
-        fileobj.write(page.write())
+        if isinstance(event, OggPageEvent):
+            fileobj.write(event.page.write())
+        print "event : %r" % event
+

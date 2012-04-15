@@ -127,6 +127,11 @@ class TrackDerived(object):
     def open_audiotools(self):
         return audiotools.open(cont_addr.addr_to_path(self.blob.cont_addr))
 
+    def get_metadata(self):
+        return {
+                'title': self.original.title,
+                'artist': self.original.artist,
+                }
 
 from . import tables
 

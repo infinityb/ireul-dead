@@ -6,12 +6,10 @@ from sqlalchemy import (
     Integer,
     String,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    LargeBinary,
 )
 from ireul.lib.fields import EncodingParams
-
-
-from sqlalchemy.types import BINARY
 
 blob = \
         Table('blob', metadata,
@@ -28,7 +26,7 @@ track_orig = \
                      nullable=False,
                      unique=True),
               # pickle the metadata for later
-              Column('metadata', BINARY),
+              Column('metadata', LargeBinary),
               Column('artist', String),
               Column('title', String),
              )

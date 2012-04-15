@@ -6,6 +6,7 @@ import magic
 import gevent.queue
 
 from ireul.storage.filesystem import cont_addr
+from ireul import stream_event
 from ireul.storage.models import (
     TrackOriginal,
     TrackDerived,
@@ -66,4 +67,27 @@ def transcode(track_original, target_codec, encoding_params):
     blob = Blob(hash_, "audio/ogg")
     return TrackDerived(track_original, blob, target_codec.__name__,
                         encoding_params)
+
+
+def get_now_playing_pair():
+    np_command_signal = gevent.queue.Queue()
+    np_command_data = gevent.queue.Queue()
+
+    def get_now_playing_func():
+        np_command_signal.put(None)
+        return np_command_data.get()
+
+    def now_playing_pipeline(input_event_stream):
+        track = None
+        pos_cur = None
+        for event in input_event_stream:
+            if not np_command_signal.empty():
+                np_command_signal.get()
+                np_command_data.put((track, pos_cur))
+            if isinstance(event, stream_event.OggPageEvent):
+                pos_cur = event.pos_cur
+            if isinstance(event, stream_event.TrackStartedEvent):
+                track = event.track
+            yield event
+    return get_now_playing_func, now_playing_pipeline
 
