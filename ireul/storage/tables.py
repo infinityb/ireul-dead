@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     LargeBinary,
+    UniqueConstraint,
 )
 from ireul.lib.fields import EncodingParams
 
@@ -59,5 +60,8 @@ fave = \
                     nullable=False),
                 Column('user_id', Integer,
                     ForeignKey(user.c.id),
-                    nullable=False))
+                    nullable=False),
+                UniqueConstraint('track_orig_id', 'user_id',
+                    name='user_fave_uniq'))
+
 

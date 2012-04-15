@@ -10,6 +10,8 @@ from ireul.irc_bot import (
         QueueHandler,
         NextTrackHandler,
         NowPlayingHandler,
+        BadTrackLoggerHandler,
+        FaveHandler,
     )
 from ireul.metainfo_readers.icy import get_metadata as get_icy_metadata
 from ireul.metainfo_readers.ogg_vorbis import get_metadata as get_ogg_metadata
@@ -22,6 +24,7 @@ channels = {
     'r/a/dio': 'http://stream.r-a-dio.com:1130/main.mp3',
     'ogg-test': 'http://anka.org:8080/fresh.ogg',
     'skys-int': 'http://vita.ib.ys:8000/cocks.ogg',
+    'radio-test': 'http://127.0.0.1:8000/test.ogg',
 }
 
 
@@ -29,11 +32,14 @@ command_queue = gevent.queue.Queue()
 session = DBSession()
 track_queue = TrackQueue()
 selection_strategy = RandomSelectionStrategy()
+
 cli.add_handler(QueueHandler(track_queue, session))
 cli.add_handler(NextTrackHandler(command_queue))
 
 now_playing_getter, now_playing_transform = get_now_playing_pair()
-cli.add_handler(NowPlayingHandler(now_playing_getter))
+cli.add_handler(NowPlayingHandler(DBSession, now_playing_getter))
+cli.add_handler(BadTrackLoggerHandler(command_queue, now_playing_getter, open('/home/sell/bad_track.txt', 'a')))
+cli.add_handler(FaveHandler(DBSession, now_playing_getter))
 cli.start()
 
 def send_stream_greenlet():
@@ -47,9 +53,9 @@ def send_stream_greenlet():
 
 gevent.Greenlet.spawn(send_stream_greenlet)
 gevent.sleep(3)
-
+"""
 while True:
-    for res in get_ogg_metadata(channels['skys-int']):
+    for res in get_ogg_metadata(channels['radio-test']):
         print u"Got TrackInfo: %r" % res.raw
         if res.find_tag('x-ireul-id', False):
             ireul_id = int(res.find_tag('x-ireul-id'))
@@ -58,3 +64,5 @@ while True:
         else:
             cli.send(message.msg(JOIN_CHANNEL, u"Now Playing: %s" % unicode(res)))
     cli.send(message.msg(JOIN_CHANNEL, "Lost connection to server."))
+"""
+gevent.sleep(86400*300)

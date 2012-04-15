@@ -133,6 +133,22 @@ class TrackDerived(object):
                 'artist': self.original.artist,
                 }
 
+
+class User(object):
+    def __init__(self, username):
+        self._username = username
+
+    @hybrid_property
+    def username(self):
+        return self._username
+
+
+class Fave(object):
+    def __init__(self, user=None, track=None):
+        self.user = user
+        self.track = track
+
+
 from . import tables
 
 from sqlalchemy.orm import mapper, relationship
@@ -146,6 +162,7 @@ mapper(TrackOriginal, tables.track_orig,
        properties={
            '_blob': relationship(Blob),
            'derivatives': relationship(TrackDerived, lazy='dynamic'),
+           'faves': relationship(Fave, lazy='dynamic')
        })
 
 mapper(TrackDerived, tables.track_derived,
@@ -155,3 +172,11 @@ mapper(TrackDerived, tables.track_derived,
            'original': relationship(TrackOriginal),
        })
 
+mapper(User, tables.user, column_prefix="_")
+
+mapper(Fave, tables.fave,
+       column_prefix="_",
+       properties={
+           'user': relationship(User),
+           'track': relationship(TrackOriginal)
+       })
