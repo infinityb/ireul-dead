@@ -13,6 +13,7 @@ from flyrc import handler, message
 from ireul.storage import models as m
 from ireul.icy_write_vorb import SkipTrackEvent
 import sqlalchemy.orm.exc as sqlao_e
+import datetime
 class QueueHandler(object):
     DEPENDENCIES = [handler.BasicCommand]
 
@@ -64,11 +65,17 @@ class NowPlayingHandler(object):
         session = self._sessf()
         try:
             track = session.merge(track)
-            line = u"[Track#%d] \00313%s\017 [%d samples] [faves \0033+%d\017]" % (
+            try:
+                lp_rec = track.original.plays.order_by(m.TrackPlay.played_at.desc()).limit(1).one()
+                lp = "%s ago" % (datetime.datetime.now() - lp_rec.played_at)
+            except sqlao_e.NoResultFound:
+                lp = "never"
+            line = u"[Track#%d] \00313%s\017 [%d samples] [faves \0033+%d\017] [lp %s]" % (
                 track.original._id,
                 track.original.get_name(),
                 pos,
                 track.original.faves.count(),
+                lp 
             )
             client.send(message.msg(target, line))
         finally:

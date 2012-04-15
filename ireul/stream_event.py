@@ -61,10 +61,9 @@ class SkipTrackEvent(StreamerEvent):
                     page_completed = page_completed | event.page.complete
                     if not page_completed:
                         yield event
-                elif isinstance(event, TrackStartedEvent):
-                    print "Found TrackStartedEvent: %r" % event
+                elif isinstance(event, TrackEndedEvent):
+                    print "Found TrackEndedEvent, suppressing. %r" % event
                     skipping = False
-                    yield event
                 else:
                     yield event
 
@@ -79,4 +78,12 @@ class TrackStartedEvent(StreamerEvent):
         return "TrackStartedEvent(%r, %r)" % (
                 self.track, self.pos_initial)
 
+class TrackEndedEvent(StreamerEvent):
+    def __init__(self, track, pos_initial=None):
+        self.track = track
+        self.pos_initial = pos_initial
+
+    def __repr__(self):
+        return "TrackEndedEvent(%r, %r)" % (
+                self.track, self.pos_initial)
 

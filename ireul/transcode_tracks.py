@@ -10,7 +10,8 @@ create_all()
 
 session = DBSession()
 
-for track in session.query(m.TrackOriginal).all():
+for track in session.query(m.TrackOriginal).filter(
+    m.TrackOriginal._id.in_(list(xrange(6519, 6532)))).all():
     encoding_params = audiotools.EncodingParams(**ENCODE_PARAMS)
     encoding_params['serial'], = struct.unpack('!I',
             track.blob.cont_addr[-8:].decode('hex'))

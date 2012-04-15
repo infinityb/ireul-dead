@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     LargeBinary,
     UniqueConstraint,
+    Index
 )
 from ireul.lib.fields import EncodingParams
 
@@ -63,5 +64,15 @@ fave = \
                     nullable=False),
                 UniqueConstraint('track_orig_id', 'user_id',
                     name='user_fave_uniq'))
+
+track_play = \
+        Table('track_play', metadata,
+                Column('id', Integer, primary_key=True),
+                Column('track_orig_id', Integer,
+                    ForeignKey(track_orig.c.id),
+                    nullable=False),
+                Column('played_at', DateTime, nullable=False),
+                Index('idx_played_at', 'played_at')
+)
 
 

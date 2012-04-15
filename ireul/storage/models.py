@@ -1,3 +1,4 @@
+from datetime import datetime
 from sqlalchemy.ext.hybrid import hybrid_property
 import datetime, json, pickle
 import audiotools
@@ -81,6 +82,9 @@ class TrackOriginal(object):
         return audiotools.open(cont_addr.addr_to_path(self.blob.cont_addr))
 
     def get_name(self):
+        if hasattr(self.metadata, 'album'):
+            return u"%s [%s] - %s" % (
+                self.artist, self.metadata.album, self.title)
         return u"%s - %s" % (self.artist, self.title)
 
 
@@ -149,6 +153,18 @@ class Fave(object):
         self.track = track
 
 
+class TrackPlay(object):
+    def __init__(self, track, played_at=unspecified):
+        self.track = track
+        if played_at is unspecified:
+            played_at = datetime.datetime.now()
+        self._played_at = played_at
+
+    @hybrid_property
+    def played_at(self):
+        return self._played_at
+
+
 from . import tables
 
 from sqlalchemy.orm import mapper, relationship
@@ -162,7 +178,8 @@ mapper(TrackOriginal, tables.track_orig,
        properties={
            '_blob': relationship(Blob),
            'derivatives': relationship(TrackDerived, lazy='dynamic'),
-           'faves': relationship(Fave, lazy='dynamic')
+           'faves': relationship(Fave, lazy='dynamic'),
+           'plays': relationship(TrackPlay, lazy='dynamic'),
        })
 
 mapper(TrackDerived, tables.track_derived,
@@ -178,5 +195,11 @@ mapper(Fave, tables.fave,
        column_prefix="_",
        properties={
            'user': relationship(User),
+           'track': relationship(TrackOriginal)
+       })
+
+mapper(TrackPlay, tables.track_play,
+       column_prefix="_",
+       properties={
            'track': relationship(TrackOriginal)
        })

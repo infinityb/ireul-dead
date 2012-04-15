@@ -31,18 +31,22 @@ def yield_events(track_derived):
     yield OggPageEvent(OggPage(fh))
     tmp = OggPage(fh)
     # replace outgoing tag
-    tmp.packets[0] = create_metadata_packet([
-        ('title', track_derived.original.title),
-        ('album', track_derived.original.metadata.album_name),
-        ('artist', track_derived.original.artist),
-        ('x-ireul-id', unicode(track_derived.id))])
+    metadata = []
+    metadata.append(('title', track_derived.original.title))
+    metadata.append(('artist', track_derived.original.artist))
+    if hasattr(track_derived.original.metadata, 'album_name'):
+        metadata.append(('album', track_derived.original.metadata.album_name))
+    if hasattr(track_derived.original.metadata, 'year'):
+        metadata.append(('year', track_derived.original.metadata.year))
+    metadata.append(('x-ireul-id', unicode(track_derived.original.id)))
+    tmp.packets[0] = create_metadata_packet(metadata)
     yield OggPageEvent(tmp)
     try:
         while True:
             yield OggPageEvent(OggPage(fh))
     except EOFError:
         pass
-
+    yield TrackEndedEvent(track_derived)
 
 def inject_events(event_queue):
     def _injector(input_event_stream):
@@ -52,42 +56,6 @@ def inject_events(event_queue):
              yield event
     return _injector
 
-
-
-def ogg_show_event(input_event_stream):
-    for event in input_event_stream:
-        print repr(event)
-        yield event
-
-def ogg_make_pos_monotonic(input_event_stream):
-    track_offset = None
-    last_pos = 0
-    for event in input_event_stream:
-        if isinstance(event, OggPageEvent):
-            if event.page.position == 0: # starting a new track
-                track_offset = last_pos
-            event.page.position = last_pos = track_offset + event.page.position
-        yield event
-
-def ogg_make_seq_monotonic(input_event_stream):
-    seq_ctr = itertools.count()
-    for event in input_event_stream:
-        if isinstance(event, OggPageEvent):
-            event.page.sequence = next(seq_ctr)
-        yield event
-
-def ogg_make_single_serial(input_event_stream):
-    serial = random.randint(0, 2**32)
-    for event in input_event_stream:
-        if isinstance(event, OggPageEvent):
-            event.page.serial = serial
-        yield event
-
-def ogg_fix_header(input_event_stream):
-    yield next(input_event_stream)
-    for event in input_event_stream:
-        event.page.first = False
-        yield event
 
 """ Broken
 def monitor_position(input_event_stream):
@@ -109,16 +77,6 @@ def monitor_position(input_event_stream):
     print "total position = %d" % prev_pos
     print "total time = %dm:%02.2fs" % divmod(time_sum, 60)
 """
-
-def apply_timing(input_event_stream):
-    time_initial = time.time()
-    for event in input_event_stream:
-        if isinstance(event, OggPageEvent):
-            real_time = time.time() - time_initial
-            play_time = float(event.page.position)/44100
-            gevent.sleep(max(0.0, play_time - real_time))
-        yield event
-
 
 def send_stream(url, source_file_iter, pre_transforms=[], post_transforms=[]):
     """Returns an iterable yielding the ICY metadata"""
@@ -148,19 +106,8 @@ def send_stream(url, source_file_iter, pre_transforms=[], post_transforms=[]):
     fileobj.readline()
     fileobj.readline()
 
-
-    ogg_event_pre = compose(
-            ogg_make_seq_monotonic,
-            OggPageEvent.pre_transform,
-            *pre_transforms
-            )
-
-    ogg_event_post = compose(
-            apply_timing,
-            ogg_make_pos_monotonic,
-            SkipTrackEvent.post_transform,
-            *post_transforms
-            )
+    ogg_event_pre = compose(*pre_transforms)
+    ogg_event_post = compose(*post_transforms)
 
     # get all the pages
     def stream_events():
@@ -173,5 +120,6 @@ def send_stream(url, source_file_iter, pre_transforms=[], post_transforms=[]):
         #import pdb; pdb.set_trace()
         if isinstance(event, OggPageEvent):
             fileobj.write(event.page.write())
-        print "event : %r" % event
+        else:
+            print "event : %r" % event
 
