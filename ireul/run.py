@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import gevent
+from gevent import monkey as _monkey; _monkey.patch_all()
+from gevent import socket
 
 from flyrc import message
 from ireul import settings
@@ -33,32 +35,42 @@ session = DBSession()
 track_queue = TrackQueue()
 selection_strategy = RandomSelectionStrategy()
 
+now_playing_getter, now_playing_transform = ogg_trans.get_now_playing_pair()
+
 cli.add_handler(QueueHandler(track_queue, session))
 cli.add_handler(NextTrackHandler(command_queue))
-
-now_playing_getter, now_playing_transform = ogg_trans.get_now_playing_pair()
 cli.add_handler(NowPlayingHandler(DBSession, now_playing_getter))
-cli.add_handler(BadTrackLoggerHandler(command_queue, now_playing_getter, open('/home/sell/bad_track.txt', 'a')))
+cli.add_handler(BadTrackLoggerHandler(command_queue,
+    now_playing_getter, open('/home/sell/bad_track.txt', 'a')))
 cli.add_handler(FaveHandler(DBSession, now_playing_getter))
 cli.start()
 
 
 def send_stream_greenlet():
-    send_stream(settings.STREAM_URL,
-            track_getter(track_queue, 5, selection_strategy),
-            pre_transforms=[
-                ogg_trans.make_seq_monotonic,
-                stream_event.OggPageEvent.pre_transform,
-                ],
-            post_transforms=[
-                ogg_trans.apply_timing,
-                ogg_trans.make_pos_monotonic,
-                ogg_trans.last_played_monitor(DBSession),
-                stream_event.SkipTrackEvent.post_transform,
-                inject_events(command_queue),
-                now_playing_transform,
-                ],
-            )
+    while True:
+        try:
+            send_stream(settings.STREAM_URL,
+                    track_getter(track_queue, 5, selection_strategy),
+                    pre_transforms=[
+                        ogg_trans.make_seq_monotonic,
+                        stream_event.OggPageEvent.pre_transform,
+                        ogg_trans.page_buffer(64),
+                    ],
+                    post_transforms=[
+                        ogg_trans.apply_timing,
+                        ogg_trans.make_pos_monotonic,
+                        ogg_trans.last_played_monitor(DBSession),
+                        stream_event.SkipTrackEvent.post_transform,
+                        inject_events(command_queue),
+                        now_playing_transform,
+                    ],
+                )
+        except socket.error as e:
+            cli.send(message.msg(JOIN_CHANNEL,
+                "send_stream_greenlet: [NOTICE] suppressed: %r" % e))
+        except Exception as e:
+            cli.send(message.msg(JOIN_CHANNEL,
+                "send_stream_greenlet: [WARNING] suppressed: %r" % e))
 
 gevent.Greenlet.spawn(send_stream_greenlet)
 gevent.sleep(3)
